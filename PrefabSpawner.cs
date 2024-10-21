@@ -10,6 +10,8 @@ public class PrefabSpawner : MonoBehaviour
     public TMP_Text textMeshPro;        // Reference to the TextMeshPro component to update
 
     public List<GameObject> spawnedPrefabs = new List<GameObject>();  // List to track spawned prefabs
+    private TMP_Text currentlySelectedButtonText; // Text reference of the currently selected button
+    private string currentlySelectedUsername; // Reference to the currently selected player's username
 
     void Start()
     {
@@ -50,6 +52,48 @@ public class PrefabSpawner : MonoBehaviour
         }
     }
 
+    // Event handler for button click
+    void OnButtonClicked(Button button, TMP_Text buttonText, string username)
+    {
+        // Check if the clicked button is already selected
+        if (currentlySelectedButtonText == buttonText)
+        {
+            // If it is already selected, deselect it
+            buttonText.text = "Select";
+            currentlySelectedButtonText = null;  // Clear the selection
+            currentlySelectedUsername = null; // Clear the currently selected player
+            GUIFunctions.selectedplayer = null; // Clear the selected player reference
+        }
+        else
+        {
+            // If another button is selected, set that to "Select"
+            if (currentlySelectedButtonText != null)
+            {
+                currentlySelectedButtonText.text = "Select";
+            }
+
+            // Set the clicked button's text to "Deselect" and update the currently selected reference
+            buttonText.text = "Deselect";
+            currentlySelectedButtonText = buttonText;  // Update the reference to the currently selected button text
+            currentlySelectedUsername = username; // Update the currently selected player's username
+            foreach (var player in CVRPlayerManager.Instance.NetworkPlayers)
+            {
+                if (player.Username == username)
+                GUIFunctions.selectedplayer = player; // Set the selected player
+            }
+        }
+    }
+
+    public void SetPrefabUsername(GameObject prefabInstance, string username)
+    {
+        var playerNameText = prefabInstance.transform.Find("PlayerName").GetComponent<TMP_Text>();
+        if (playerNameText != null)
+        {
+            playerNameText.richText = true;
+            playerNameText.text = username; // Set the username
+        }
+    }
+
     // Spawns a single prefab and makes it a child of the targetObject
     public GameObject SpawnPrefab()
     {
@@ -57,6 +101,18 @@ public class PrefabSpawner : MonoBehaviour
         GameObject newPrefab = Instantiate(prefab, targetObject.position, Quaternion.identity);
         newPrefab.transform.SetParent(targetObject, false); // Set the targetObject as the parent, keep local scale
         spawnedPrefabs.Add(newPrefab);
+        newPrefab.gameObject.SetActive(true);
+
+        // Set up the button in the prefab
+        Button button = newPrefab.transform.Find("Button").GetComponent<Button>();
+        TMP_Text buttonText = button.transform.Find("ButtonText").GetComponent<TMP_Text>();
+
+        // Assume the username is set in the prefab's PlayerName field
+        string username = newPrefab.transform.Find("PlayerName").GetComponent<TMP_Text>().text;
+
+        // Subscribe to the button's click event
+        button.onClick.AddListener(() => OnButtonClicked(button, buttonText, username));
+
         return newPrefab; // Return the newly created prefab for further use
     }
 
@@ -81,16 +137,6 @@ public class PrefabSpawner : MonoBehaviour
             Destroy(prefab); // Destroy the prefab
         }
         spawnedPrefabs.Clear(); // Clear the list
-    }
-
-    // Sets the username for a specific prefab instance
-    public void SetPrefabUsername(GameObject prefabInstance, string username)
-    {
-        var playerNameText = prefabInstance.transform.Find("PlayerName").GetComponent<TMP_Text>();
-        if (playerNameText != null)
-        {
-            playerNameText.text = username; // Set the username
-        }
     }
 
     // Updates the TextMeshPro with the current number of spawned prefabs
